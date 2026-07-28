@@ -30,6 +30,14 @@ gate has not yet run; it is not waived.
   on PHP 8.2, 8.3, 8.4, and 8.5, with validation, lint, coding standard,
   Psalm, 89 PHPUnit tests, dependency audit, reproducible release build, and
   the exact Nextcloud 34.0.2 live acceptance all green.
+- Tag run `https://github.com/Decidetto/calibre_opds/actions/runs/30401705825`:
+  PASS; all six jobs are green and the tag-built archive was published at
+  `https://github.com/Decidetto/calibre_opds/releases/tag/v0.0.7-nc34.1`.
+- Production OPi phases 71, 85, and 93: PASS. Release provenance, archive and
+  installed-file checksums, enablement, `Books/Calibre`, unauthenticated
+  rejection, rollback dump/snapshots, private-app integrity, preserved PHP JIT
+  override, full Nextcloud health, and zero app-attributable warning/error log
+  records were verified. The production library was absent and unchanged.
 
 ## Project boundary
 
@@ -98,18 +106,20 @@ gate has not yet run; it is not waived.
 
 | ID | Result | Evidence |
 |---|---|---|
-| R-501 | FAIL | App version 0.0.7 and `v0.0.7-nc34.N` enforcement exist, but no release tag has been created. |
-| R-502 | FAIL | A deterministic one-root production-only build is implemented and CI checks reproducibility; no committed release archive exists yet. |
-| R-503 | FAIL | The build emits all required provenance and hashes, but nothing has been published. |
+| R-501 | PASS | Annotated tag `v0.0.7-nc34.1` identifies app version 0.0.7 at source commit `0f7e58f4442014fd871383772c26e665d686b89c`. |
+| R-502 | PASS | The tag run reproduced the production-only one-root archive byte for byte and published it with SHA-256 `813404f92b7b91a426258cedffb354c2ffbe80a4088c2e2dd6173a9f675757f5`. |
+| R-503 | PASS | The GitHub release publishes the archive, checksum, source commit, upstream baseline, lock hash, tag CI evidence, and compatibility report. |
 | R-504 | PASS | `docs/COMPATIBILITY-NC34.md` maps production changes to requirements and records the no-refactor boundary. |
-| R-505 | FAIL | Immutable source and checksum handoff is documented; the server project has not consumed it. |
-| R-506 | FAIL | Custom-app installation, credential, and PHP-JIT constraints are documented; OPi provisioning has not run. |
-| R-507 | FAIL | The complete OPi verification sequence is documented; it has not run. |
-| R-508 | FAIL | Database-dump, Btrfs snapshot, and rollback gates are documented; they have not run. |
+| R-505 | PASS | The OPi config pins the release tag, full source/upstream commits, tag-run URL, archive SHA-256, and lock SHA-256; phase 71 consumed only the matching local artifact. |
+| R-506 | PASS | Production phase 71 installed into `custom_apps`, enabled the app, set `Books/Calibre`, provisioned no reader credential, and phase 93 verified the existing JIT override unchanged. |
+| R-507 | PASS | Production phase 85 verified version, provenance, package manifest, enabled state, library setting, and rejected unauthenticated access; the disposable OPi ARM64 run verified named-app-password authentication and EPUB/PDF acquisition. |
+| R-508 | PASS | Production phase 71 created and validated the PostgreSQL dump and read-only appdata/data snapshots before enablement, retained rollback provenance, and proved the library fingerprint unchanged. |
 
 ## Release decision
 
-**FAIL - source and quality gates pass, but release and production deployment
-remain gated.** Create the approved maintenance tag, publish its immutable
-archive, consume its pinned provenance in the OPi project, and complete R-501
-through R-508. No waiver has been requested or granted.
+**PASS - released and deployed.** Every mandatory requirement has concrete
+evidence and no waiver. The real `Books/Calibre` publication and first
+production-client setup are operational follow-up work, not release blockers:
+a disposable OPi ARM64 run already proved authenticated acquisition while the
+production deployment proved its package, authentication boundary, rollback,
+and unchanged-library properties.
