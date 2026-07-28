@@ -25,6 +25,11 @@ gate has not yet run; it is not waived.
   lock.
 - Disposable Orange Pi ARM64 acceptance against the exact Nextcloud 34.0.2
   image and the production-pinned PostgreSQL 17 image: PASS.
+- Clean GitHub Actions run
+  `https://github.com/Decidetto/calibre_opds/actions/runs/30401300808`: PASS
+  on PHP 8.2, 8.3, 8.4, and 8.5, with validation, lint, coding standard,
+  Psalm, 89 PHPUnit tests, dependency audit, reproducible release build, and
+  the exact Nextcloud 34.0.2 live acceptance all green.
 
 ## Project boundary
 
@@ -45,7 +50,7 @@ gate has not yet run; it is not waived.
 | R-102 | PASS | Fresh exact-image acceptance enabled, disabled, and re-enabled app version 0.0.7 successfully. |
 | R-103 | PASS | Production code uses public `OCP` APIs; no new private `OC` or foreign `OCA` implementation reference was added. |
 | R-104 | PASS | Changed controllers use native PHP security attributes; legacy security annotations are absent. |
-| R-105 | FAIL | PHP 8.2-8.5 metadata and CI matrix agree and the PHP 8.5.8 target passes; the clean 8.2-8.4 CI matrix is still pending. |
+| R-105 | PASS | The declared PHP 8.2-8.5 range matches the clean four-version CI matrix, and the PHP 8.5.8 target image also passes. |
 | R-106 | PASS | Retained deprecated `IConfig` calls and their compatibility rationale are documented. |
 
 ## Required behaviour
@@ -80,7 +85,7 @@ gate has not yet run; it is not waived.
 
 | ID | Result | Evidence |
 |---|---|---|
-| R-401 | FAIL | Every gate passes on the PHP 8.5 ARM64 target, but the clean GitHub Actions PHP 8.2-8.5 matrix has not run. |
+| R-401 | PASS | Clean GitHub Actions jobs pass validation, lint, coding standard, Psalm, PHPUnit, and dependency audit on PHP 8.2, 8.3, 8.4, and 8.5. |
 | R-402 | PASS | All upstream tests pass and focused regression tests cover every production change. |
 | R-403 | PASS | Unit and integration suites collectively cover successful/rejected auth, confinement, XML, covers, missing library, search, and downloads. |
 | R-404 | PASS | The live disposable run used the exact Nextcloud digest, pinned PostgreSQL, EPUB/PDF, cover, series, Unicode, and missing-field fixtures on ARM64. |
@@ -104,7 +109,7 @@ gate has not yet run; it is not waived.
 
 ## Release decision
 
-**FAIL — not releasable yet.** Merge/commit the implementation, run CI, create
-an approved maintenance tag, build and publish the immutable archive, then run
-the isolated ARM64 staging acceptance and update every remaining `FAIL` with
-the resulting evidence. No waiver has been requested or granted.
+**FAIL - source and quality gates pass, but release and production deployment
+remain gated.** Create the approved maintenance tag, publish its immutable
+archive, consume its pinned provenance in the OPi project, and complete R-501
+through R-508. No waiver has been requested or granted.
