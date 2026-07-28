@@ -11,17 +11,19 @@ Provisioning must receive these values from an approved release manifest:
 - `calibre_opds_upstream_commit`
 - `calibre_opds_release_tag` matching `v0.0.7-nc34.N`
 - `calibre_opds_test_run_url` identifying the immutable CI evidence
-- `calibre_opds_archive_path` pointing to the reviewed local release object
+- `calibre_opds_archive_url` pointing to the immutable tagged release object
+- `calibre_opds_archive_path` pointing to its verified local cache
 - `calibre_opds_archive_sha256`
 - `calibre_opds_lock_sha256`
 
-The OPi project keeps the release object in its ignored local `artifacts/`
-directory and transfers it only when the application phase is selected. It
-must verify SHA-256 before extraction, verify that the archive contains exactly
-one top-level `calibre_opds` directory, and install atomically into Nextcloud's
-configured custom-app directory. It must never fetch `master`, another branch,
-or a mutable `latest` asset. A public release URL is optional because source
-identity, CI evidence, and artifact content are independently pinned.
+The OPi deployer downloads the tagged release object only when its ignored
+local `artifacts/` cache is absent, verifies SHA-256 before caching and again
+before extraction, and transfers it only when the application phase is
+selected. An existing cache with the wrong hash must fail closed. The archive
+must contain exactly one top-level `calibre_opds` directory and install
+atomically into Nextcloud's configured custom-app directory. Provisioning must
+never fetch `master`, another branch, or a mutable `latest` asset.
+
 ## R-5xx mapping
 
 | Requirement | Provisioning/verification step |
