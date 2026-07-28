@@ -236,7 +236,7 @@ final class OpdsResponse extends Response {
 		$xml->startElement('generator');
 		$xml->writeAttribute('uri', $this->app->getAppWebsite());
 		$xml->writeAttribute('version', $this->app->getAppVersion());
-		$xml->writeCdata($this->app->getAppName());
+		$xml->text($this->app->getAppName());
 		$xml->endElement(); // </generator>
 		if (!is_null($this->icon)) {
 			$xml->writeElement('icon', $this->icon);
@@ -262,7 +262,7 @@ final class OpdsResponse extends Response {
 			if (!is_null($summary)) {
 				$xml->startElement('content');
 				$xml->writeAttribute('type', 'html');
-				$xml->writeCdata($summary);
+				$xml->text($summary);
 				$xml->endElement(); // </content>
 			}
 			$xml->endElement(); // </entry>

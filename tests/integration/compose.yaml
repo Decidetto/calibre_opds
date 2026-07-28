@@ -1,0 +1,37 @@
+services:
+  database:
+    image: postgres:17-bookworm@sha256:4f736ae292687621d4dbe0d499ffd024a36bd2ee7d8ca6f2ccd4c800f047b394
+    environment:
+      POSTGRES_DB: nextcloud
+      POSTGRES_USER: nextcloud
+      POSTGRES_PASSWORD: ${NC_DB_PASSWORD:?Set NC_DB_PASSWORD}
+    healthcheck:
+      test: [CMD-SHELL, pg_isready -U nextcloud -d nextcloud]
+      interval: 2s
+      timeout: 3s
+      retries: 30
+    volumes:
+      - database-data:/var/lib/postgresql/data
+
+  nextcloud:
+    image: nextcloud:34.0.2-apache@sha256:e93ccfc952c95f18175f3d297fb2f60c35070c05ca976050c250a9ddab793e75
+    depends_on:
+      database:
+        condition: service_healthy
+    environment:
+      NEXTCLOUD_ADMIN_USER: integration-admin
+      NEXTCLOUD_ADMIN_PASSWORD: ${NC_ADMIN_PASSWORD:?Set NC_ADMIN_PASSWORD}
+      NEXTCLOUD_TRUSTED_DOMAINS: 127.0.0.1 localhost
+      POSTGRES_HOST: database
+      POSTGRES_DB: nextcloud
+      POSTGRES_USER: nextcloud
+      POSTGRES_PASSWORD: ${NC_DB_PASSWORD:?Set NC_DB_PASSWORD}
+    ports:
+      - "127.0.0.1:${NC_PORT:-18080}:80"
+    volumes:
+      - nextcloud-data:/var/www/html
+      - ../../:/var/www/html/custom_apps/calibre_opds:ro
+
+volumes:
+  database-data:
+  nextcloud-data:

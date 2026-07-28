@@ -8,10 +8,14 @@ namespace OCA\Calibre2OPDS\Calibre\Types;
 
 use OCA\Calibre2OPDS\Calibre\CalibreItem;
 use OCA\Calibre2OPDS\Calibre\ICalibreDB;
+use OCA\Calibre2OPDS\Util\LibraryPath;
 use OCA\Calibre2OPDS\Util\MapAggregate;
 use OCP\Files\File;
 use OCP\Files\FileInfo;
 use OCP\Files\Folder;
+use OCP\Files\InvalidPathException;
+use OCP\Files\NotFoundException;
+use OCP\Files\NotPermittedException;
 use PDOException;
 use Traversable;
 
@@ -50,8 +54,12 @@ final class CalibreBookFormat extends CalibreItem {
 	 * @return File|null data file, or `null` if doesn't exist.
 	 */
 	public function getDataFile(Folder $root): ?File {
-		$filename = $this->path . '/' . $this->name . '.' . strtolower($this->format);
-		$data = $root->get($filename);
+		try {
+			$filename = $this->name . '.' . strtolower($this->format);
+			$data = $root->get(LibraryPath::join($this->path, $filename));
+		} catch (\UnexpectedValueException|InvalidPathException|NotFoundException|NotPermittedException $e) {
+			return null;
+		}
 		if (!$data->isReadable() || $data->getType() !== FileInfo::TYPE_FILE || !($data instanceof File)) {
 			return null;
 		}

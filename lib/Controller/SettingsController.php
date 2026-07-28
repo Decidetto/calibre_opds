@@ -8,6 +8,9 @@ namespace OCA\Calibre2OPDS\Controller;
 
 use OCA\Calibre2OPDS\Service\ISettingsService;
 use OCP\AppFramework\Controller;
+use OCP\AppFramework\Http;
+use OCP\AppFramework\Http\Attribute\NoAdminRequired;
+use OCP\AppFramework\Http\JSONResponse;
 use OCP\IRequest;
 use OCP\PreConditionNotMetException;
 use Psr\Log\LoggerInterface;
@@ -22,17 +25,21 @@ final class SettingsController extends Controller {
 		parent::__construct($settings->getAppId(), $request);
 	}
 
-	/**
-	 * @NoAdminRequired
-	 */
-	public function settings(string $libraryRoot): array {
+	#[NoAdminRequired]
+	public function settings(string $libraryRoot): JSONResponse {
 		try {
 			$this->settings->setLibrary($libraryRoot);
 		} catch (PreConditionNotMetException|UnexpectedValueException $e) {
-			$this->logger->error('Exception in ' . __FUNCTION__, [ 'exception' => $e ]);
+			$this->logger->warning('Rejected Calibre library setting', [
+				'exceptionClass' => $e::class,
+			]);
+			return new JSONResponse([
+				'libraryRoot' => $this->settings->getLibrary(),
+				'error' => 'Invalid library path',
+			], Http::STATUS_BAD_REQUEST);
 		}
-		return [
+		return new JSONResponse([
 			'libraryRoot' => $this->settings->getLibrary()
-		];
+		]);
 	}
 }

@@ -10,6 +10,7 @@ use OCP\Files\FileInfo;
 use OCP\Files\Folder;
 use OCP\Files\NotFoundException;
 use PDO;
+use Pdo\Sqlite;
 use PDOException;
 use Traversable;
 
@@ -25,6 +26,15 @@ final class CalibreDB implements ICalibreDB {
 	private const METADATA_DB = 'metadata.db';
 
 	/**
+	 * Tables required by the supported Calibre catalogue queries.
+	 */
+	private const REQUIRED_TABLES = [
+		'authors', 'books', 'books_authors_link', 'books_languages_link', 'books_publishers_link',
+		'books_series_link', 'books_tags_link', 'comments', 'data', 'identifiers', 'languages',
+		'publishers', 'series', 'tags',
+	];
+
+	/**
 	 * Database PDO interface.
 	 */
 	private PDO $database;
@@ -38,23 +48,69 @@ final class CalibreDB implements ICalibreDB {
 	 * @throws PDOException on failure.
 	 */
 	private function __construct(string $dsn, bool $readOnly) {
-		$attr = [ PDO::ATTR_ERRMODE => PDO::ERRMODE_EXCEPTION ];
+		$attr = [
+			PDO::ATTR_ERRMODE => PDO::ERRMODE_EXCEPTION,
+			PDO::ATTR_TIMEOUT => 1,
+		];
 		if ($readOnly) {
-			$attr[PDO::SQLITE_ATTR_OPEN_FLAGS] = PDO::SQLITE_OPEN_READONLY;
+			if (class_exists(Sqlite::class)) {
+				$attr[Sqlite::ATTR_OPEN_FLAGS] = Sqlite::OPEN_READONLY;
+			} else {
+				$attr[PDO::SQLITE_ATTR_OPEN_FLAGS] = PDO::SQLITE_OPEN_READONLY;
+			}
 		}
-		$this->database = new PDO('sqlite:' . $dsn, null, null, $attr);
-		if (!$readOnly) {
+		if (class_exists(Sqlite::class)) {
+			$this->database = new Sqlite('sqlite:' . $dsn, null, null, $attr);
+		} else {
+			$this->database = new PDO('sqlite:' . $dsn, null, null, $attr);
+		}
+		if ($readOnly) {
+			$this->database->exec('PRAGMA query_only = ON');
+			$this->validateSchema();
+		} else {
 			// Following functions are used by some triggers
-			/** @psalm-suppress TooManyArguments -- should be fixed once <https://github.com/vimeo/psalm/pull/11591> is backported */
-			$this->database->sqliteCreateFunction('title_sort', function (string $name): ?string {
+			$titleSort = function (string $name): ?string {
 				return preg_replace('/^(A|The|An)\s+(.*)$/i', '${2}, ${1}', $name, 1);
-			}, 1, PDO::SQLITE_DETERMINISTIC);
-			$this->database->sqliteCreateFunction('uuid4', function (): string {
+			};
+			$uuid4 = function (): string {
 				$data = random_bytes(16);
 				$data[6] = chr(ord($data[6]) & 0x0f | 0x40);
 				$data[8] = chr(ord($data[8]) & 0x3f | 0x80);
 				return vsprintf('%s%s-%s-%s-%s-%s%s%s', str_split(bin2hex($data), 4));
-			}, 0);
+			};
+			if ($this->database instanceof Sqlite) {
+				$this->database->createFunction('title_sort', $titleSort, 1, Sqlite::DETERMINISTIC);
+				$this->database->createFunction('uuid4', $uuid4, 0);
+			} else {
+				/** @psalm-suppress TooManyArguments -- should be fixed once <https://github.com/vimeo/psalm/pull/11591> is backported */
+				$this->database->sqliteCreateFunction('title_sort', $titleSort, 1, PDO::SQLITE_DETERMINISTIC);
+				$this->database->sqliteCreateFunction('uuid4', $uuid4, 0);
+			}
+		}
+	}
+
+	/**
+	 * Reject malformed databases and schemas that cannot serve the supported feeds.
+	 *
+	 * @throws PDOException if the database is malformed or unsupported.
+	 */
+	private function validateSchema(): void {
+		$check = $this->database->query('PRAGMA quick_check(1)')->fetchColumn();
+		if ($check !== 'ok') {
+			throw new PDOException('Malformed Calibre database');
+		}
+
+		$placeholders = implode(',', array_fill(0, count(self::REQUIRED_TABLES), '?'));
+		$stmt = $this->database->prepare(
+			'SELECT name FROM sqlite_schema WHERE type = ? AND name IN (' . $placeholders . ')'
+		);
+		$stmt->execute(array_merge(['table'], self::REQUIRED_TABLES));
+		$tables = $stmt->fetchAll(PDO::FETCH_COLUMN);
+		sort($tables);
+		$required = self::REQUIRED_TABLES;
+		sort($required);
+		if ($tables !== $required) {
+			throw new PDOException('Unsupported Calibre database schema');
 		}
 	}
 

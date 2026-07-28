@@ -6,6 +6,14 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ## [Unreleased]
 
+## 0.0.7 - 2026-07-28
+
+### Changed
+
+- Add the Nextcloud 34 maintenance compatibility and security patch.
+- Default user libraries to `Books/Calibre`.
+- Add exact-image integration acceptance and reproducible release tooling.
+
 ## 0.0.6 - 2025-09-28
 
 ### Changed

@@ -6,7 +6,6 @@ declare(strict_types=1);
 
 namespace OCA\Calibre2OPDS\Controller;
 
-use Exception;
 use OCA\Calibre2OPDS\Calibre\CalibreItem;
 use OCA\Calibre2OPDS\Calibre\ICalibreDB;
 use OCA\Calibre2OPDS\Calibre\Types\CalibreAuthor;
@@ -27,12 +26,16 @@ use OCP\AppFramework\Controller;
 use OCP\AppFramework\Http;
 use OCP\AppFramework\Http\Attribute\NoAdminRequired;
 use OCP\AppFramework\Http\Attribute\NoCSRFRequired;
+use OCP\AppFramework\Http\Attribute\PublicPage;
 use OCP\AppFramework\Http\Response;
 use OCP\AppFramework\Http\StreamResponse;
 use OCP\Files\Folder;
+use OCP\Files\NotFoundException;
 use OCP\IL10N;
 use OCP\IRequest;
+use PDOException;
 use Psr\Log\LoggerInterface;
+use Throwable;
 
 final class OpdsController extends Controller {
 	private const DEFAULT_PREFIX_LENGTH = 1;
@@ -55,10 +58,11 @@ final class OpdsController extends Controller {
 	/**
 	 * Wrapper for controller routes.
 	 *
+	 * @param string $operation stable operation name for safe logging.
 	 * @param callable(Folder,ICalibreDB):Response $func function to wrap.
 	 * @return Response route response.
 	 */
-	private function methodWrapper(callable $func): Response {
+	private function methodWrapper(string $operation, callable $func): Response {
 		try {
 			if (!$this->settings->isLoggedIn()) {
 				return (new Response())->setStatus(Http::STATUS_UNAUTHORIZED)->addHeader(
@@ -72,19 +76,39 @@ final class OpdsController extends Controller {
 			}
 			$lib = $this->calibre->getDatabase($libPath);
 			return call_user_func($func, $libPath, $lib);
-		} catch (Exception $e) {
-			$this->logger->error('Exception in ' . debug_backtrace(DEBUG_BACKTRACE_IGNORE_ARGS, 2)[1]['function'], [ 'exception' => $e ]);
+		} catch (NotFoundException $e) {
+			$this->logFailure($operation, $e, true);
+			return (new Response())->setStatus(Http::STATUS_NOT_FOUND);
+		} catch (PDOException $e) {
+			$this->logFailure($operation, $e);
+			return (new Response())->setStatus(Http::STATUS_SERVICE_UNAVAILABLE);
+		} catch (Throwable $e) {
+			$this->logFailure($operation, $e);
 			return (new Response())->setStatus(Http::STATUS_INTERNAL_SERVER_ERROR);
 		}
 	}
 
 	/**
-	 * @NoAdminRequired
-	 * @NoCSRFRequired
-	 * @PublicPage
+	 * Log request failures without serializing exception messages that may contain local paths.
 	 */
+	private function logFailure(string $operation, Throwable $error, bool $expected = false): void {
+		$context = [
+			'operation' => $operation,
+			'exceptionClass' => $error::class,
+			'exceptionCode' => $error->getCode(),
+		];
+		if ($expected) {
+			$this->logger->warning('Calibre OPDS resource is unavailable', $context);
+		} else {
+			$this->logger->error('Calibre OPDS request failed', $context);
+		}
+	}
+
+	#[NoAdminRequired]
+	#[NoCSRFRequired]
+	#[PublicPage]
 	public function index(): Response {
-		return $this->methodWrapper(function (Folder $libPath, ICalibreDB $lib): Response {
+		return $this->methodWrapper(__FUNCTION__, function (Folder $libPath, ICalibreDB $lib): Response {
 			$builder = $this->feed->createBuilder('index', $this->request->getParams(), $this->l->t('Calibre OPDS Library'));
 			$builder->addSubsectionItem('authors', 'author_prefixes', $this->l->t('Authors'), $this->l->t('All authors'));
 			$builder->addSubsectionItem('publishers', 'publishers', $this->l->t('Publishers'), $this->l->t('All publishers'));
@@ -96,13 +120,11 @@ final class OpdsController extends Controller {
 		});
 	}
 
-	/**
-	 * @NoAdminRequired
-	 * @NoCSRFRequired
-	 * @PublicPage
-	 */
+	#[NoAdminRequired]
+	#[NoCSRFRequired]
+	#[PublicPage]
 	public function authors(string $prefix = ''): Response {
-		return $this->methodWrapper(function (Folder $libPath, ICalibreDB $lib) use ($prefix): Response {
+		return $this->methodWrapper(__FUNCTION__, function (Folder $libPath, ICalibreDB $lib) use ($prefix): Response {
 			if ($prefix === '') {
 				$title = $this->l->t('Authors');
 			} else {
@@ -116,14 +138,12 @@ final class OpdsController extends Controller {
 		});
 	}
 
-	/**
-	 * @NoAdminRequired
-	 * @NoCSRFRequired
-	 * @PublicPage
-	 */
+	#[NoAdminRequired]
+	#[NoCSRFRequired]
+	#[PublicPage]
 	public function authorPrefixes(int $length = self::DEFAULT_PREFIX_LENGTH): Response {
 		$length = $length > 0 ? $length : 1;
-		return $this->methodWrapper(function (Folder $libPath, ICalibreDB $lib) use ($length): Response {
+		return $this->methodWrapper(__FUNCTION__, function (Folder $libPath, ICalibreDB $lib) use ($length): Response {
 			$builder = $this->feed->createBuilder('author_prefixes', $this->request->getParams(), $this->l->t('Authors by prefix'));
 			foreach (CalibreAuthorPrefix::getAll($lib, $length) as $item) {
 				$builder->addNavigationEntry($item);
@@ -132,13 +152,11 @@ final class OpdsController extends Controller {
 		});
 	}
 
-	/**
-	 * @NoAdminRequired
-	 * @NoCSRFRequired
-	 * @PublicPage
-	 */
+	#[NoAdminRequired]
+	#[NoCSRFRequired]
+	#[PublicPage]
 	public function publishers(): Response {
-		return $this->methodWrapper(function (Folder $libPath, ICalibreDB $lib): Response {
+		return $this->methodWrapper(__FUNCTION__, function (Folder $libPath, ICalibreDB $lib): Response {
 			$builder = $this->feed->createBuilder('publishers', $this->request->getParams(), $this->l->t('Publishers'));
 			foreach (CalibrePublisher::getAll($lib) as $item) {
 				$builder->addNavigationEntry($item);
@@ -147,13 +165,11 @@ final class OpdsController extends Controller {
 		});
 	}
 
-	/**
-	 * @NoAdminRequired
-	 * @NoCSRFRequired
-	 * @PublicPage
-	 */
+	#[NoAdminRequired]
+	#[NoCSRFRequired]
+	#[PublicPage]
 	public function languages(): Response {
-		return $this->methodWrapper(function (Folder $libPath, ICalibreDB $lib): Response {
+		return $this->methodWrapper(__FUNCTION__, function (Folder $libPath, ICalibreDB $lib): Response {
 			$builder = $this->feed->createBuilder('languages', $this->request->getParams(), $this->l->t('Languages'));
 			foreach (CalibreLanguage::getAll($lib) as $item) {
 				$builder->addNavigationEntry($item);
@@ -162,13 +178,11 @@ final class OpdsController extends Controller {
 		});
 	}
 
-	/**
-	 * @NoAdminRequired
-	 * @NoCSRFRequired
-	 * @PublicPage
-	 */
+	#[NoAdminRequired]
+	#[NoCSRFRequired]
+	#[PublicPage]
 	public function series(): Response {
-		return $this->methodWrapper(function (Folder $libPath, ICalibreDB $lib): Response {
+		return $this->methodWrapper(__FUNCTION__, function (Folder $libPath, ICalibreDB $lib): Response {
 			$builder = $this->feed->createBuilder('series', $this->request->getParams(), $this->l->t('Series'));
 			foreach (CalibreSeries::getAll($lib) as $item) {
 				$builder->addNavigationEntry($item);
@@ -177,13 +191,11 @@ final class OpdsController extends Controller {
 		});
 	}
 
-	/**
-	 * @NoAdminRequired
-	 * @NoCSRFRequired
-	 * @PublicPage
-	 */
+	#[NoAdminRequired]
+	#[NoCSRFRequired]
+	#[PublicPage]
 	public function tags(): Response {
-		return $this->methodWrapper(function (Folder $libPath, ICalibreDB $lib): Response {
+		return $this->methodWrapper(__FUNCTION__, function (Folder $libPath, ICalibreDB $lib): Response {
 			$builder = $this->feed->createBuilder('tags', $this->request->getParams(), $this->l->t('Tags'));
 			foreach (CalibreTag::getAll($lib) as $item) {
 				$builder->addNavigationEntry($item);
@@ -192,13 +204,11 @@ final class OpdsController extends Controller {
 		});
 	}
 
-	/**
-	 * @NoAdminRequired
-	 * @NoCSRFRequired
-	 * @PublicPage
-	 */
+	#[NoAdminRequired]
+	#[NoCSRFRequired]
+	#[PublicPage]
 	public function books(string $criterion = '', string $id = ''): Response {
-		return $this->methodWrapper(function (Folder $libPath, ICalibreDB $lib) use ($criterion, $id): Response {
+		return $this->methodWrapper(__FUNCTION__, function (Folder $libPath, ICalibreDB $lib) use ($criterion, $id): Response {
 			$title = $this->l->t('All books');
 			$upRoute = null;
 			$upParams = [];
@@ -256,13 +266,11 @@ final class OpdsController extends Controller {
 		});
 	}
 
-	/**
-	 * @NoAdminRequired
-	 * @NoCSRFRequired
-	 * @PublicPage
-	 */
+	#[NoAdminRequired]
+	#[NoCSRFRequired]
+	#[PublicPage]
 	public function searchXml(): Response {
-		return $this->methodWrapper(function (Folder $libPath, ICalibreDB $lib): Response {
+		return $this->methodWrapper(__FUNCTION__, function (Folder $libPath, ICalibreDB $lib): Response {
 			$resp = new OpenSearchResponse(
 				/// TRANSLATORS: No more than 16 characters
 				$this->l->t('Search'),
@@ -278,13 +286,14 @@ final class OpdsController extends Controller {
 		});
 	}
 
-	/**
-	 * @NoAdminRequired
-	 * @NoCSRFRequired
-	 * @PublicPage
-	 */
+	#[NoAdminRequired]
+	#[NoCSRFRequired]
+	#[PublicPage]
 	public function bookData(string $id, string $type): Response {
-		return $this->methodWrapper(function (Folder $libPath, ICalibreDB $lib) use ($id, $type): Response {
+		return $this->methodWrapper(__FUNCTION__, function (Folder $libPath, ICalibreDB $lib) use ($id, $type): Response {
+			if (preg_match('/\A[A-Za-z0-9]{1,16}\z/D', $type) !== 1) {
+				return (new Response())->setStatus(Http::STATUS_NOT_FOUND);
+			}
 			$format = CalibreBookFormat::getByBookAndType($lib, $id, $type);
 			if (is_null($format)) {
 				return (new Response())->setStatus(Http::STATUS_NOT_FOUND);
@@ -297,17 +306,18 @@ final class OpdsController extends Controller {
 			if ($data === false) {
 				return (new Response())->setStatus(Http::STATUS_NOT_FOUND);
 			}
-			return (new StreamResponse($data))->addHeader('Content-Type', MimeTypes::getMimeType($type));
+			return (new StreamResponse($data))
+				->addHeader('Content-Type', MimeTypes::getMimeType($type))
+				->addHeader('Content-Disposition', "attachment; filename*=UTF-8''" . rawurlencode($file->getName()))
+				->addHeader('X-Content-Type-Options', 'nosniff');
 		});
 	}
 
-	/**
-	 * @NoAdminRequired
-	 * @NoCSRFRequired
-	 * @PublicPage
-	 */
+	#[NoAdminRequired]
+	#[NoCSRFRequired]
+	#[PublicPage]
 	public function bookCover(string $id): Response {
-		return $this->methodWrapper(function (Folder $libPath, ICalibreDB $lib) use ($id): Response {
+		return $this->methodWrapper(__FUNCTION__, function (Folder $libPath, ICalibreDB $lib) use ($id): Response {
 			$book = CalibreBook::getById($lib, $id);
 			if (is_null($book)) {
 				return (new Response())->setStatus(Http::STATUS_NOT_FOUND);
@@ -320,7 +330,9 @@ final class OpdsController extends Controller {
 			if ($data === false) {
 				return (new Response())->setStatus(Http::STATUS_NOT_FOUND);
 			}
-			return (new StreamResponse($data))->addHeader('Content-Type', MimeTypes::getMimeType('jpg'));
+			return (new StreamResponse($data))
+				->addHeader('Content-Type', MimeTypes::getMimeType('jpg'))
+				->addHeader('X-Content-Type-Options', 'nosniff');
 		});
 	}
 }

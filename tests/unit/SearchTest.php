@@ -84,4 +84,12 @@ class SearchTest extends TestCase {
 			'title' => 'This is a test: Z123',
 		])), 'Regex search in title -- match (2)');
 	}
+	public function testMalformedRegexFallsBackToLiteralSearch(): void {
+		$filter = CalibreSearch::searchBooks('[/');
+		$this->assertTrue(call_user_func($filter, $this->createCalibreItem(CalibreBook::class, $this->db, [
+			...self::BOOK_DEFAULTS,
+			'title' => 'This contains a [/ literal',
+		])));
+	}
+
 }

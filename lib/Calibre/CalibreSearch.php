@@ -90,7 +90,7 @@ final class CalibreSearch {
 		foreach ($item->tags as $tag) {
 			self::appendHaystack($haystack, $tag->name);
 		}
-		$match = preg_grep($this->pattern, $haystack);
+		$match = @preg_grep($this->pattern, $haystack);
 		/** @psalm-suppress RedundantConditionGivenDocblockType -- see <https://github.com/vimeo/psalm/issues/9543> */
 		return $match !== false && count($match) > 0;
 	}
@@ -105,12 +105,17 @@ final class CalibreSearch {
 		if ($terms === '') {
 			return null;
 		}
-		$dataEsc = str_replace('/', '\/', $terms);
-		$dataNorm = normalizer_normalize($dataEsc, self::DEFAULT_FORM);
+		$dataNorm = normalizer_normalize($terms, self::DEFAULT_FORM);
 		if ($dataNorm === false) {
-			$dataNorm = $dataEsc;
+			$dataNorm = $terms;
 		}
-		return '/' . $dataNorm . '/inS';
+		$dataEsc = str_replace('/', '\/', $dataNorm);
+		$pattern = '/(*LIMIT_MATCH=100000)(*LIMIT_DEPTH=1000)' . $dataEsc . '/inu';
+		if (@preg_match($pattern, '') === false) {
+			// Preserve a bounded search response for malformed client patterns.
+			return '/' . preg_quote($dataNorm, '/') . '/inu';
+		}
+		return $pattern;
 	}
 
 	/**

@@ -56,7 +56,7 @@ return [
 			// Book acquisition
 			'name' => 'opds#book_data',
 			'url' => '/data/{id}/{type}',
-			'requirements' => [ 'id' => '[0-9]+' ]
+			'requirements' => [ 'id' => '[0-9]+', 'type' => '[A-Za-z0-9]{1,16}' ]
 		],
 		[
 			// Book cover

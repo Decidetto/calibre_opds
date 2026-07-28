@@ -40,7 +40,10 @@ class SettingsServiceTest extends TestCase {
 		$this->initLoggerInterface();
 		$this->initStorage('.', true);
 		$this->initL10N('sv-SE');
-		$this->booksFolder = $this->createFolderNode('Books', []);
+		$calibreFolder = $this->createFolderNode('Calibre', []);
+		$this->booksFolder = $this->createFolderNode('Books', [
+			$calibreFolder,
+		]);
 		$this->userFolder = $this->createFolderNode('.', [
 			$this->booksFolder,
 			$this->createFolderNode('BadBooks', [], false),
@@ -102,26 +105,40 @@ class SettingsServiceTest extends TestCase {
 
 	public function testSettings(): void {
 		$this->assertTrue($this->service->isLoggedIn());
-		$this->assertEquals('Books', $this->service->getLibrary());
+		$this->assertEquals('Books/Calibre', $this->service->getLibrary());
 		$this->assertEquals([], $this->confValues);
-		$this->assertEquals(['library' => 'Books'], $this->service->getSettings());
-		$this->assertEquals($this->booksFolder, $this->service->getLibraryFolder());
+		$this->assertEquals(['library' => 'Books/Calibre'], $this->service->getSettings());
+		$this->assertEquals($this->booksFolder->get('Calibre'), $this->service->getLibraryFolder());
 
 		$this->assertTrue($this->service->setLibrary('Books-1'));
 		$this->assertEquals('Books-1', $this->service->getLibrary());
 		$this->assertEquals(['library' => 'Books-1'], $this->service->getSettings());
 		$this->expectMessage = [
-			'level' => 'error',
-			'msg' => 'not found: Books-1',
+			'level' => 'warning',
+			'msg' => 'Configured Calibre library is unavailable',
 		];
 		$this->assertNull($this->service->getLibraryFolder());
 
 		$this->assertTrue($this->service->setLibrary('BadBooks'));
 		$this->expectMessage = [
-			'level' => 'error',
-			'msg' => 'Library root is not a readable folder',
+			'level' => 'warning',
+			'msg' => 'Configured Calibre library is unavailable',
 		];
 		$this->assertNull($this->service->getLibraryFolder());
+	}
+
+	public function testUnsafeLibrarySettingIsRejected(): void {
+		$this->expectException(UnexpectedValueException::class);
+		$this->service->setLibrary('../OtherUser/Books');
+	}
+
+	public function testUnsafeStoredLibrarySettingFailsClosed(): void {
+		$this->confValues['library'] = '/absolute/library';
+		$this->expectMessage = [
+			'level' => 'warning',
+			'msg' => 'Rejected unsafe Calibre library setting',
+		];
+		$this->assertNull($this->service->getLibrary());
 	}
 
 	public function testUnlogged(): void {

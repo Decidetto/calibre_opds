@@ -253,6 +253,27 @@ class CalibreTest extends TestCase {
 		$this->assertNull($dataFile, 'Book data file -- unreadable');
 	}
 
+	public function testDatabasePathsCannotEscapeLibrary(): void {
+		$this->assertInstanceOf(OCA\Calibre2OPDS\Calibre\CalibreDB::class, $this->dataDb);
+		$this->dataDb->getDatabase()->exec("update books set path = '../outside' where id = 12");
+
+		$book = CalibreBook::getById($this->dataDb, 12);
+		$this->assertNotNull($book);
+		$this->assertNull($book->getCoverFile($this->dataRoot));
+
+		$format = CalibreBookFormat::getByBookAndType($this->dataDb, 12, 'epub');
+		$this->assertNotNull($format);
+		$this->assertNull($format->getDataFile($this->dataRoot));
+	}
+
+	public function testDatabaseFormatNameCannotTraverse(): void {
+		$this->assertInstanceOf(OCA\Calibre2OPDS\Calibre\CalibreDB::class, $this->dataDb);
+		$this->dataDb->getDatabase()->exec("update data set name = '../../outside' where book = 12 and format = 'EPUB'");
+		$format = CalibreBookFormat::getByBookAndType($this->dataDb, 12, 'epub');
+		$this->assertNotNull($format);
+		$this->assertNull($format->getDataFile($this->dataRoot));
+	}
+
 	public function testBooksAll(): void {
 		$books = CalibreBook::getByCriterion($this->dataDb);
 		$this->checkData([

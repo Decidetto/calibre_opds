@@ -1,0 +1,75 @@
+name: CI
+
+on:
+  push:
+  pull_request:
+
+permissions:
+  contents: read
+
+jobs:
+  php:
+    name: PHP ${{ matrix.php }}
+    runs-on: ubuntu-24.04
+    strategy:
+      fail-fast: false
+      matrix:
+        php: ['8.2', '8.3', '8.4', '8.5']
+    steps:
+      - uses: actions/checkout@v4
+      - uses: shivammathur/setup-php@v2
+        with:
+          php-version: ${{ matrix.php }}
+          extensions: intl, mbstring, pdo_sqlite, sqlite3, xml, zip
+          coverage: xdebug
+      - uses: ramsey/composer-install@v3
+        with:
+          dependency-versions: locked
+      - run: composer validate --strict --no-check-publish
+      - run: composer lint
+      - run: composer cs
+      - run: composer psalm
+      - run: composer phpunit
+        env:
+          XDEBUG_MODE: coverage
+      - run: composer audit --locked
+
+  nextcloud-34:
+    name: Nextcloud 34.0.2 live acceptance (amd64)
+    runs-on: ubuntu-24.04
+    needs: php
+    steps:
+      - uses: actions/checkout@v4
+      - uses: shivammathur/setup-php@v2
+        with:
+          php-version: '8.4'
+          tools: composer
+          coverage: none
+      - run: composer install --no-dev --no-interaction --prefer-dist --classmap-authoritative
+      - run: tests/integration/run.sh
+
+  release:
+    name: Reproducible release
+    runs-on: ubuntu-24.04
+    needs: php
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - uses: shivammathur/setup-php@v2
+        with:
+          php-version: '8.4'
+          tools: composer
+          coverage: none
+      - run: scripts/build-release.sh
+      - run: |
+          first="$(sha256sum dist/calibre_opds-*-nc34.tar.gz | awk '{print $1}')"
+          rm -rf dist
+          scripts/build-release.sh
+          second="$(sha256sum dist/calibre_opds-*-nc34.tar.gz | awk '{print $1}')"
+          test "${first}" = "${second}"
+      - uses: actions/upload-artifact@v4
+        with:
+          name: calibre_opds-nc34
+          path: dist/
+          if-no-files-found: error

@@ -18,13 +18,11 @@ trait CalibreStub {
 			throw new Exception('class ' . $cls . ' is not a subclass of CalibreItem');
 		}
 		$instConstructor = $instCls->getConstructor();
-		$instConstructor->setAccessible(true);
 		/** @var CalibreItem */
 		$inst = $instCls->newInstanceWithoutConstructor();
 		$instConstructor->invoke($inst, $db, $data);
 		if (!is_null($subData)) {
 			$prop = $instCls->getParentClass()->getProperty('data');
-			$prop->setAccessible(true);
 			$value = $prop->getValue($inst);
 			$prop->setValue($inst, array_merge($value, $subData));
 		}

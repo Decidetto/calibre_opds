@@ -7,6 +7,7 @@ declare(strict_types=1);
 namespace OCA\Calibre2OPDS\Service;
 
 use OCA\Calibre2OPDS\AppInfo\Application;
+use OCA\Calibre2OPDS\Util\LibraryPath;
 use OCP\App\IAppManager;
 use OCP\Files\FileInfo;
 use OCP\Files\Folder;
@@ -30,7 +31,7 @@ final class SettingsService implements ISettingsService {
 	 * @var array<string,string>
 	 */
 	private const DEFAULTS = [
-		'library' => 'Books'
+		'library' => 'Books/Calibre'
 	];
 
 	/**
@@ -126,12 +127,14 @@ final class SettingsService implements ISettingsService {
 		}
 		try {
 			$root = $this->rootFolder->getUserFolder($user->getUID())->get($libPath);
-			if (!$root->isReadable() || $root->getType() !== FileInfo::TYPE_FOLDER || !($root instanceof Folder)) {
-				throw new NotFoundException('Library root is not a readable folder');
+			if (!($root instanceof Folder) || !$root->isReadable() || $root->getType() !== FileInfo::TYPE_FOLDER) {
+				throw new NotFoundException('Configured library is not a readable folder');
 			}
 			return $root;
 		} catch (InvalidPathException|NotFoundException|NotPermittedException $e) {
-			$this->logger->error($e->getMessage(), [ 'exception' => $e ]);
+			$this->logger->warning('Configured Calibre library is unavailable', [
+				'exceptionClass' => $e::class,
+			]);
 			return null;
 		}
 	}
@@ -143,11 +146,20 @@ final class SettingsService implements ISettingsService {
 			return null;
 		}
 		/** @psalm-suppress DeprecatedMethod -- TODO IUserConfig */
-		return $this->config->getUserValue($user->getUID(), Application::APP_ID, 'library', self::DEFAULTS['library']);
+		$library = $this->config->getUserValue($user->getUID(), Application::APP_ID, 'library', self::DEFAULTS['library']);
+		try {
+			return LibraryPath::normalize($library);
+		} catch (\UnexpectedValueException $e) {
+			$this->logger->warning('Rejected unsafe Calibre library setting', [
+				'exceptionClass' => $e::class,
+			]);
+			return null;
+		}
 	}
 
 	#[\Override]
 	public function setLibrary(string $libraryRoot): bool {
+		$libraryRoot = LibraryPath::normalize($libraryRoot);
 		$user = $this->userSession->getUser();
 		if (is_null($user)) {
 			return false;

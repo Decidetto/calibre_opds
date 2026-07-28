@@ -42,7 +42,7 @@
         }
     ],
     "require": {
-        "php": "8.1 - 8.4"
+        "php": "8.2 - 8.5"
     },
     "require-dev": {
         "nextcloud/ocp": "dev-master",
@@ -55,7 +55,7 @@
     "scripts": {
         "cs": "php-cs-fixer fix --using-cache=no --dry-run --diff --show-progress=dots",
         "lint": "parallel-lint ./appinfo ./lib",
-        "phpunit": "XDEBUG_MODE=coverage phpunit --coverage-text",
+        "phpunit": "phpunit",
         "psalm": "psalm.phar --config=psalm.xml --no-cache",
         "tests": [
             "@lint",
@@ -69,7 +69,7 @@
     },
     "scripts-descriptions": {
         "cs": "Checks that the code conforms to the coding standard.",
-        "lint": "Runs unit tests.",
+        "lint": "Checks PHP syntax.",
         "phpunit": "Run all unit tests.",
         "psalm": "Runs static analysis.",
         "tests": "Runs all available tests.",

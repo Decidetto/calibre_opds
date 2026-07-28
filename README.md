@@ -31,11 +31,19 @@ Correspondence between Calibre metadata and OPDS fields is described in [a separ
 This app has no administrator settings.
 
 Personal settings for this app are in settings section "Sharing". The only parameter that
-can be modified at the moment is path to Calibre library folder (by default `Books`).
+can be modified is the path to the Calibre library folder (by default `Books/Calibre`).
+The path is relative to the authenticated user's Files root.
+
+OPDS clients should use the user's Nextcloud login name and a dedicated named
+app password over HTTPS. The catalogue does not permit anonymous access.
 
 ## Installation
 
-Since this app is not in the Nextcloud App Store yet, you'll have to install it manually:
+This NC34 maintenance fork is privately distributed and is not App Store
+signed. Install a pinned release archive into Nextcloud's configured
+custom-app directory and verify its published SHA-256 before extraction.
+
+For a development build:
 
 First, clone this repository:
 
@@ -46,12 +54,12 @@ git clone https://gitlab.com/oldnomad/calibre_opds.git
 Then run Composer and create a tarball:
 
 ```sh
-composer update --no-dev
-make appstore
+composer install --no-dev
+scripts/build-release.sh
 ```
 
-The tarball is created in subdirectory `build/artifacts/appstore`. Copy it to your Nextcloud
-instance and unpack into your apps directory (typically, subdirectory `apps` under your Nextcloud
-root directory).
+The reproducible tarball and checksum are created in `dist/`. Copy the tarball
+to the supported custom-app directory configured in `apps_paths`.
 
-Now you can go to your Nextcloud apps manager and enable this app.
+Enable it with `occ app:enable calibre_opds`. See
+`docs/OPI-DEPLOYMENT.md` for the immutable Orange Pi handoff.

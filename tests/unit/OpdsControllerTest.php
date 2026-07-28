@@ -11,6 +11,9 @@ use OCA\Calibre2OPDS\Opds\OpenSearchResponse;
 use OCA\Calibre2OPDS\Service\ICalibreService;
 use OCA\Calibre2OPDS\Service\OpdsFeedService;
 use OCP\AppFramework\Http;
+use OCP\AppFramework\Http\Attribute\NoAdminRequired;
+use OCP\AppFramework\Http\Attribute\NoCSRFRequired;
+use OCP\AppFramework\Http\Attribute\PublicPage;
 use OCP\AppFramework\Http\Response;
 use OCP\AppFramework\Http\StreamResponse;
 use PHPUnit\Framework\TestCase;
@@ -82,6 +85,15 @@ class OpdsControllerTest extends TestCase {
 		$this->libraryFolder = $this->dataRoot;
 	}
 
+	public function testOpdsRoutesUseNativeSecurityAttributes(): void {
+		foreach (['index', 'authors', 'authorPrefixes', 'publishers', 'languages', 'series', 'tags', 'books', 'searchXml', 'bookData', 'bookCover'] as $method) {
+			$reflection = new ReflectionMethod(OpdsController::class, $method);
+			$this->assertCount(1, $reflection->getAttributes(NoAdminRequired::class), $method);
+			$this->assertCount(1, $reflection->getAttributes(NoCSRFRequired::class), $method);
+			$this->assertCount(1, $reflection->getAttributes(PublicPage::class), $method);
+		}
+	}
+
 	private function commonTestDoc($response, string $respClass = OpdsResponse::class): void {
 		$this->assertNotNull($response, 'Null controller response');
 		$this->assertEquals(Http::STATUS_OK, $response->getStatus(), 'Wrong HTTP status');
@@ -95,7 +107,7 @@ class OpdsControllerTest extends TestCase {
 		});
 		$this->expectMessage = [
 			'level' => 'error',
-			'msg' => 'Exception in index',
+			'msg' => 'Calibre OPDS request failed',
 		];
 		$response = $this->controller->index();
 		$this->assertNotNull($response, 'Null controller response');
@@ -249,6 +261,9 @@ class OpdsControllerTest extends TestCase {
 		$response = $this->controller->bookData('12', 'FB2');
 		$this->assertNotNull($response, 'Null controller response');
 		$this->assertEquals(Http::STATUS_NOT_FOUND, $response->getStatus(), 'Wrong HTTP status');
+
+		$response = $this->controller->bookData('12', '../EPUB');
+		$this->assertEquals(Http::STATUS_NOT_FOUND, $response->getStatus(), 'Unsafe format was accepted');
 
 		$response = $this->controller->bookData('12', 'XXX');
 		$this->assertNotNull($response, 'Null controller response');
