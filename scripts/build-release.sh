@@ -81,6 +81,7 @@ tar \
 	--group=0 \
 	--numeric-owner \
 	--format=posix \
+	--pax-option=delete=atime,delete=ctime \
 	-C "${stage_root}" \
 	-cf - calibre_opds \
 	| gzip -n >"${archive}"
