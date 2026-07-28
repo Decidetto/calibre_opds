@@ -13,10 +13,6 @@ use OCA\Calibre2OPDS\Calibre\Types\CalibreBook;
  * Search implementation.
  */
 final class CalibreSearch {
-	/**
-	 * Default Unicode form used for search.
-	 */
-	private const DEFAULT_FORM = Normalizer::NFKC;
 
 	/**
 	 * Construct an instance.
@@ -43,7 +39,7 @@ final class CalibreSearch {
 		if (is_null($result)) {
 			return $text;
 		}
-		$result = normalizer_normalize($result, self::DEFAULT_FORM);
+		$result = normalizer_normalize($result, Normalizer::NFKC);
 		return ($result === false) ? $text : $result;
 	}
 
@@ -59,7 +55,7 @@ final class CalibreSearch {
 		if (!is_string($text) || $text === '') {
 			return;
 		}
-		$textNorm = normalizer_normalize($text, self::DEFAULT_FORM);
+		$textNorm = normalizer_normalize($text, Normalizer::NFKC);
 		if ($textNorm === false) {
 			$textNorm = $text;
 		}
@@ -105,7 +101,7 @@ final class CalibreSearch {
 		if ($terms === '') {
 			return null;
 		}
-		$dataNorm = normalizer_normalize($terms, self::DEFAULT_FORM);
+		$dataNorm = normalizer_normalize($terms, Normalizer::NFKC);
 		if ($dataNorm === false) {
 			$dataNorm = $terms;
 		}
